@@ -1,8 +1,8 @@
-"""L'outil de triage : featurizer + réseau entraîné -> backlog ordonné et bugs atypiques signalés.
+"""Triage tool: featurizer + trained network -> ranked backlog with atypical bugs flagged.
 
-Il est enregistré dans MLflow comme un modèle « pyfunc » : n'importe quel code peut le
-recharger avec `mlflow.pyfunc.load_model("models:/jem-prioriser@champion")` et appeler
-`.predict(dataframe_de_bugs)`, sans connaître PyTorch ni scikit-learn.
+It is logged to MLflow as a "pyfunc" model: any code can reload it with
+`mlflow.pyfunc.load_model("models:/jem-prioriser@champion")` and call `.predict(bugs_dataframe)`
+without knowing about PyTorch or scikit-learn.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ class Prioriser:
         self.featurizer = featurizer
         self.model = model.cpu().eval()
         self.train_energies = np.sort(train_energies)
-        # Au-delà de cette énergie (95e percentile des bugs d'entraînement) : bug atypique -> revue humaine
+        # Above this energy (95th percentile of training bugs) a bug is atypical -> human review
         self.review_threshold = float(np.quantile(train_energies, review_quantile))
 
     @torch.no_grad()
@@ -33,7 +33,7 @@ class Prioriser:
         return torch.softmax(logits, 1).numpy(), energy_from_logits(logits).numpy()
 
     def score(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Retourne les bugs triés du plus urgent au moins urgent, avec de quoi justifier le tri."""
+        """Return bugs ranked from most to least urgent, with the columns that justify the ranking."""
         probs, energy = self.predict_raw(df)
         out = pd.DataFrame(index=df.index)
         if "id" in df:
@@ -60,7 +60,7 @@ class Prioriser:
 
 
 class PrioriserPyfunc(mlflow.pyfunc.PythonModel):
-    """Adaptateur MLflow : charge le Prioriser sauvegardé et expose .predict(df)."""
+    """MLflow wrapper: loads the saved Prioriser and exposes .predict(df)."""
 
     def load_context(self, context) -> None:
         self.prioriser = Prioriser.load(context.artifacts["prioriser"])

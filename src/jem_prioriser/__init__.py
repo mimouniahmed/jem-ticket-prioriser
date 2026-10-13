@@ -1,6 +1,6 @@
-"""Priorisation de rapports de bugs avec un Joint Energy-based Model (JEM)."""
+"""Bug report prioritisation with a Joint Energy-based Model (JEM)."""
 
 import os
 
-# Désactive un message d'information que MLflow affiche à chaque import.
+# Silence an informational message MLflow prints on every import.
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")

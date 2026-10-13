@@ -1,7 +1,7 @@
-"""Exemple jouet en 2 dimensions : on peut y DESSINER le paysage d'énergie, impossible en 417 dimensions.
+"""2D toy example: the energy landscape can be PLOTTED here, which is impossible in 417 dimensions.
 
-Trois nuages de points (3 classes) ; on compare le paysage E(x) d'un classifieur classique
-et celui d'un JEM entraînés avec exactement le même code que sur les vrais bugs.
+Three point clouds (3 classes); compares the E(x) landscape of a standard classifier with that
+of a JEM, both trained with exactly the same code as on real bugs.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def train_toy(
     opt = torch.optim.Adam(model.parameters(), lr=3e-3)
     buffer = ReplayBuffer(2000, 2, reinit_prob=0.05) if alpha > 0 else None
     if buffer is not None:
-        buffer.buffer = (torch.rand(2000, 2) * 8 - 4)  # départ uniforme sur tout le carré [-4, 4]²
+        buffer.buffer = (torch.rand(2000, 2) * 8 - 4)  # uniform start over the whole [-4, 4]² square
     xt, yt = torch.from_numpy(x), torch.from_numpy(y)
     for _ in range(epochs):
         perm = torch.randperm(len(xt))

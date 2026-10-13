@@ -1,12 +1,12 @@
-"""Joint Energy-based Model (Grathwohl et al., 2019, « Your classifier is secretly an EBM »).
+"""Joint Energy-based Model (Grathwohl et al., ICLR 2020, "Your classifier is secretly an EBM").
 
-Un classifieur f(x) -> logits définit aussi un modèle à énergie :
-    p(y | x) = softmax(f(x))_y                       priorité du bug
-    E(x)     = -logsumexp_y f(x)_y ,  p(x) ∝ e^-E(x)   « ce bug ressemble-t-il aux autres ? »
+A classifier f(x) -> logits also defines an energy-based model:
+    p(y | x) = softmax(f(x))_y                       bug priority
+    E(x)     = -logsumexp_y f(x)_y ,  p(x) ∝ e^-E(x)   "does this bug look like the others?"
 
-Perte jointe :  L = CE(f(x), y) + alpha * [E(x_data) - E(x_sgld)] + alpha * lambda * (E² régularisation)
-où x_sgld sont des échantillons négatifs tirés par dynamique de Langevin (SGLD) depuis un
-replay buffer persistant (Persistent Contrastive Divergence).
+Joint loss:  L = CE(f(x), y) + alpha * [E(x_data) - E(x_sgld)] + alpha * lambda * (E² regularisation)
+where x_sgld are negative samples drawn by Stochastic Gradient Langevin Dynamics (SGLD) from a
+persistent replay buffer (Persistent Contrastive Divergence).
 """
 
 from __future__ import annotations
@@ -17,15 +17,15 @@ import torch.nn.functional as F
 
 
 class MLP(nn.Module):
-    """Petit réseau dense. Pas de BatchNorm ni de Dropout : ils rendraient l'énergie
-    dépendante du batch ou aléatoire, ce qui casse l'échantillonnage SGLD."""
+    """Small dense network. No BatchNorm or Dropout: they would make the energy depend on the
+    batch or on randomness, which breaks SGLD sampling."""
 
     def __init__(self, in_dim: int, n_classes: int, hidden: int = 256, depth: int = 2):
         super().__init__()
         layers: list[nn.Module] = []
         d = in_dim
         for _ in range(depth):
-            layers += [nn.Linear(d, hidden), nn.SiLU()]  # activation lisse : gradients SGLD réguliers
+            layers += [nn.Linear(d, hidden), nn.SiLU()]  # smooth activation: well-behaved SGLD gradients
             d = hidden
         self.body = nn.Sequential(*layers)
         self.head = nn.Linear(d, n_classes)
@@ -42,17 +42,17 @@ def energy_from_logits(logits: torch.Tensor) -> torch.Tensor:
 
 
 class ReplayBuffer:
-    """Mémoire d'échantillons négatifs : chaque chaîne SGLD repart de là où elle s'était arrêtée,
-    ce qui permet des chaînes longues pour un coût de 20 pas par itération."""
+    """Store of negative samples: each SGLD chain resumes where it stopped, which yields long
+    chains at a cost of 20 steps per iteration."""
 
     def __init__(self, size: int, dim: int, reinit_prob: float = 0.05, device: str = "cpu"):
         self.reinit_prob = reinit_prob
-        self.buffer = torch.randn(size, dim, device=device)  # features standardisées -> N(0, 1)
+        self.buffer = torch.randn(size, dim, device=device)  # standardised features -> N(0, 1)
 
     def sample(self, n: int) -> tuple[torch.Tensor, torch.Tensor]:
         idx = torch.randint(0, len(self.buffer), (n,), device=self.buffer.device)
         x = self.buffer[idx].clone()
-        reinit = torch.rand(n, device=x.device) < self.reinit_prob  # garde de la diversité
+        reinit = torch.rand(n, device=x.device) < self.reinit_prob  # keeps the samples diverse
         x[reinit] = torch.randn_like(x[reinit])
         return x, idx
 
@@ -61,7 +61,7 @@ class ReplayBuffer:
 
 
 def sgld(model: MLP, x: torch.Tensor, n_steps: int = 20, step_size: float = 1.0, noise: float = 0.01) -> torch.Tensor:
-    """Dynamique de Langevin : on descend l'énergie (vers les zones « plausibles ») en ajoutant du bruit."""
+    """Langevin dynamics: noisy descent of the energy towards regions the model finds plausible."""
     x = x.detach()
     for _ in range(n_steps):
         x.requires_grad_(True)
@@ -81,7 +81,7 @@ def jem_loss(
     sgld_step_size: float = 1.0,
     sgld_noise: float = 0.01,
 ) -> tuple[torch.Tensor, dict[str, float]]:
-    """Sans buffer (ou alpha=0) : simple entropie croisée = classifieur classique (baseline)."""
+    """Without a buffer (or with alpha=0) this is plain cross-entropy, i.e. a standard classifier."""
     logits = model(x)
     ce = F.cross_entropy(logits, y)
     stats = {"ce": ce.item()}
@@ -94,8 +94,8 @@ def jem_loss(
 
     e_pos = energy_from_logits(logits)
     e_neg = model.energy(x_neg)
-    # Maximum de vraisemblance de p(x) : baisser l'énergie des vrais bugs, remonter celle des
-    # échantillons du modèle. Le terme L2 empêche les énergies de partir à l'infini.
+    # Maximum likelihood of p(x): lower the energy of real bugs, raise that of model samples.
+    # The L2 term keeps energies from diverging.
     gen = e_pos.mean() - e_neg.mean()
     reg = e_pos.pow(2).mean() + e_neg.pow(2).mean()
     loss = ce + alpha * (gen + energy_reg * reg)

@@ -1,4 +1,4 @@
-"""Tests rapides, sans base de données ni réseau."""
+"""Fast tests, with no database or network access."""
 
 import numpy as np
 import pandas as pd
@@ -15,13 +15,13 @@ def test_bot_rules():
     assert is_bot("intermittent-bug-filer@mozilla.bugs") and is_bot("update-bot@bmo.tld")
     assert not is_bot("u123@disabled.tld") and not is_bot("botond@mozilla.com")
     assert "NOT LIKE '%@mozilla.bugs'" in human_sql()
-    assert LABEL_OF_PRIORITY["P4"] == LABEL_OF_PRIORITY["P5"] == "Basse"
+    assert LABEL_OF_PRIORITY["P4"] == LABEL_OF_PRIORITY["P5"] == "Low"
 
 
 def test_energy_is_minus_logsumexp():
     logits = torch.tensor([[2.0, 1.0, 0.0, -1.0]])
     assert torch.allclose(energy_from_logits(logits), -torch.logsumexp(logits, 1))
-    # décaler tous les logits ne change pas p(y|x) mais change l'énergie
+    # shifting all logits leaves p(y|x) unchanged but changes the energy
     assert torch.allclose(torch.softmax(logits + 10, 1), torch.softmax(logits, 1))
     assert energy_from_logits(logits + 10) < energy_from_logits(logits)
 
@@ -37,7 +37,7 @@ def test_sgld_lowers_energy():
 def test_jem_loss_terms():
     model = MLP(8, 4, hidden=32)
     x, y = torch.randn(16, 8), torch.randint(0, 4, (16,))
-    ce, stats = jem_loss(model, x, y)  # sans buffer = classifieur classique
+    ce, stats = jem_loss(model, x, y)  # no buffer = standard classifier
     assert set(stats) == {"ce"}
     loss, stats = jem_loss(model, x, y, ReplayBuffer(100, 8), sgld_steps=3)
     assert torch.isfinite(loss) and {"ce", "gen", "e_pos", "e_neg"} <= set(stats)
@@ -79,4 +79,4 @@ def test_featurizer_and_prioriser():
     ranked = Prioriser(feat, model, energies).score(df)
     assert list(ranked["rank"]) == list(range(1, len(df) + 1))
     assert (np.diff(ranked["urgency"]) <= 0).all()
-    assert ranked["needs_review"].mean() < 0.1  # ~5 % au-dessus du 95e percentile
+    assert ranked["needs_review"].mean() < 0.1  # ~5% above the 95th percentile

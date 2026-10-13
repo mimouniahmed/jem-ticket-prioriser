@@ -1,20 +1,20 @@
-"""Règles de nettoyage partagées : comptes automatiques à exclure et classes de priorité.
+"""Shared cleaning rules: automated accounts to exclude and priority classes.
 
-- les bots se reconnaissent à leur domaine e-mail ; ils produisent 96 % des P4 (wptsync)
-  et 92 % des P5 (intermittent-bug-filer) et sont exclus ;
-- sans les bots, P4 est quasi inutilisée (~900 bugs depuis 2020) : elle est fusionnée avec
-  P5 en une classe « Basse » (« ne sera pas corrigé par Mozilla »).
+- Bots are identified by their e-mail domain; they produce 96% of P4 (wptsync) and 92% of P5
+  (intermittent-bug-filer) bugs and are excluded.
+- Without bots, P4 is almost unused (~900 bugs since 2020): it is merged with P5 into a
+  "Low" class ("will not be fixed by Mozilla").
 """
 
 from __future__ import annotations
 
-# 13 comptes vérifiés à la main, tous automatiques (intermittent-bug-filer, wptsync, bugmon,
-# update-bot, clouseau-bot...). Les comptes @disabled.tld sont des humains désactivés : on les garde.
+# 13 accounts checked by hand, all automated (intermittent-bug-filer, wptsync, bugmon, update-bot,
+# clouseau-bot...). @disabled.tld accounts are deactivated human users and are kept.
 BOT_DOMAINS = ("@mozilla.bugs", "@mozilla.tld", "@bmo.tld", "@bots.tld")
 
-# Priorité Bugzilla -> classe du modèle (ordonnées de la plus à la moins urgente)
-LABEL_OF_PRIORITY = {"P1": "P1", "P2": "P2", "P3": "P3", "P4": "Basse", "P5": "Basse"}
-CLASSES = ["P1", "P2", "P3", "Basse"]
+# Bugzilla priority -> model class (ordered from most to least urgent)
+LABEL_OF_PRIORITY = {"P1": "P1", "P2": "P2", "P3": "P3", "P4": "Low", "P5": "Low"}
+CLASSES = ["P1", "P2", "P3", "Low"]
 
 
 def is_bot(email: str) -> bool:
@@ -22,5 +22,5 @@ def is_bot(email: str) -> bool:
 
 
 def human_sql(column: str = "creator") -> str:
-    """Condition SQL qui exclut les bots, à insérer dans un WHERE."""
+    """SQL condition excluding bots, to be used in a WHERE clause."""
     return " AND ".join(f"{column} NOT LIKE '%{domain}'" for domain in BOT_DOMAINS)

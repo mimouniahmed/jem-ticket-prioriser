@@ -1,9 +1,10 @@
 [project]
 name = "jem-prioriser"
 version = "0.1.0"
-description = "Priorisation de rapports de bugs avec un Joint Energy-based Model (JEM)"
+description = "Bug report prioritisation with a Joint Energy-based Model (JEM)"
 readme = "README.md"
 authors = [{ name = "Ahmed Mimouni" }]
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.11.2",

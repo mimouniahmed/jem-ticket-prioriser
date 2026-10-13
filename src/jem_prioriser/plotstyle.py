@@ -1,4 +1,4 @@
-"""Style commun des graphiques (palette catégorielle accessible, axes discrets)."""
+"""Shared chart style (accessible categorical palette, understated axes)."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from cycler import cycler
 
 from .cleaning import CLASSES
 
-SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]  # bleu, orange, turquoise, jaune (ordre fixe)
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]  # blue, orange, aqua, yellow (fixed order)
 SURFACE, TEXT, TEXT_2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 
 CLASS_COLORS = dict(zip(CLASSES, SERIES))
-MODEL_COLORS = {"MLP (baseline)": SERIES[0], "JEM": SERIES[1], "Régression logistique": SERIES[2]}
-HUMAN_BOT_COLORS = {"humains": SERIES[0], "bots": SERIES[1]}
+MODEL_COLORS = {"MLP": SERIES[0], "JEM": SERIES[1], "Logistic regression": SERIES[2]}
+HUMAN_BOT_COLORS = {"humans": SERIES[0], "bots": SERIES[1]}
 
 
 def use_style() -> None:

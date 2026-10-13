@@ -1,10 +1,10 @@
-"""Ordonne un lot de bugs avec le modèle « champion » du Model Registry MLflow.
+"""Rank a batch of bugs with the "champion" model from the MLflow Model Registry.
 
-    uv run jem-predict                                   # backlog Mozilla jamais trié (base SQLite)
-    uv run jem-predict --input bugs.csv --output tries.csv
-    uv run jem-predict --model runs:/<run_id>/prioriser  # un run précis plutôt que le champion
+    uv run jem-predict                                   # untriaged Mozilla backlog (SQLite database)
+    uv run jem-predict --input bugs.csv --output ranked.csv
+    uv run jem-predict --model runs:/<run_id>/prioriser  # a specific run instead of the champion
 
-Le CSV d'entrée doit contenir : summary, description, product, component, type, op_sys.
+The input CSV must contain: summary, description, product, component, type, op_sys.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def load_bugs(path: str | None, db_path: str) -> pd.DataFrame:
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--model", default=CHAMPION_URI)
-    p.add_argument("--input", default=None, help="CSV de bugs (par défaut : les bugs non triés de la base)")
+    p.add_argument("--input", default=None, help="CSV of bugs (default: untriaged bugs from the database)")
     p.add_argument("--db", default=DEFAULT_DB)
     p.add_argument("--output", default=None)
     p.add_argument("--top", type=int, default=15)
@@ -42,12 +42,12 @@ def main(argv=None) -> None:
     ranked = mlflow.pyfunc.load_model(args.model).predict(load_bugs(args.input, args.db))
     if args.output:
         ranked.to_csv(args.output, index=False)
-        print(f"{len(ranked)} bugs ordonnés -> {args.output}")
+        print(f"{len(ranked)} bugs ranked -> {args.output}")
 
     cols = ["rank", "summary", "predicted", "urgency", "confidence", "needs_review"]
     view = ranked[cols].head(args.top).assign(summary=lambda d: d["summary"].str.slice(0, 70))
     print(view.to_string(index=False))
-    print(f"\n{int(ranked['needs_review'].sum())} bug(s) atypique(s) signalé(s) pour une revue humaine.")
+    print(f"\n{int(ranked['needs_review'].sum())} atypical bug(s) flagged for human review.")
 
 
 if __name__ == "__main__":

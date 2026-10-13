@@ -1,11 +1,11 @@
-"""Construction du dataset d'entraînement à partir de la base SQLite collectée.
+"""Build the modelling dataset from the collected SQLite database.
 
-Règles (analyse détaillée : notebooks/01_donnees_exploration.ipynb) :
-- uniquement des bugs créés par des humains (cleaning.human_sql) ;
-- uniquement les champs connus AU MOMENT DU DÉPÔT du bug : titre, description, produit,
-  composant, type, système d'exploitation. Sont exclus car fixés pendant/après le triage
-  (fuites) : severity, status, resolution, keywords, nombre de commentaires ;
-- découpage chronologique : on entraîne sur le passé, on évalue sur le futur.
+Rules (detailed analysis: notebooks/01_data_exploration.ipynb):
+- only bugs created by humans (cleaning.human_sql);
+- only fields known WHEN THE BUG IS FILED: summary, description, product, component, type,
+  operating system. Excluded because they are set during or after triage (leakage):
+  severity, status, resolution, keywords, number of comments;
+- chronological split: train on the past, evaluate on the future.
 """
 
 from __future__ import annotations
@@ -18,9 +18,9 @@ from .cleaning import BOT_DOMAINS, CLASSES, LABEL_OF_PRIORITY, human_sql
 
 DEFAULT_DB = "data/bugzilla.sqlite"
 FEATURE_COLUMNS = ["summary", "description", "product", "component", "type", "op_sys"]
-MAX_DESCRIPTION_CHARS = 4000  # quelques descriptions contiennent des logs de plusieurs Mo
+MAX_DESCRIPTION_CHARS = 4000  # some descriptions embed logs of several MB
 
-# Bornes du découpage chronologique (dates de création, bornes supérieures exclues)
+# Chronological split boundaries (creation dates, upper bounds excluded)
 TRAIN_END = "2025-01-01"
 VAL_END = "2026-01-01"
 
@@ -44,27 +44,27 @@ def _read(db_path: str, where: str) -> pd.DataFrame:
 
 
 def load_labeled(db_path: str = DEFAULT_DB) -> pd.DataFrame:
-    """Bugs humains triés (P1..P5) avec leur classe : P1, P2, P3 ou Basse (P4+P5)."""
+    """Triaged human bugs (P1..P5) with their class: P1, P2, P3 or Low (P4+P5)."""
     df = _read(db_path, f"b.priority IN ('P1','P2','P3','P4','P5') AND {human_sql('b.creator')}")
     df["label"] = pd.Categorical(df["priority"].map(LABEL_OF_PRIORITY), categories=CLASSES, ordered=True)
-    df["y"] = df["label"].cat.codes.astype("int64")  # 0 = P1 (le plus urgent) ... 3 = Basse
+    df["y"] = df["label"].cat.codes.astype("int64")  # 0 = P1 (most urgent) ... 3 = Low
     return df
 
 
 def load_untriaged(db_path: str = DEFAULT_DB) -> pd.DataFrame:
-    """Bugs humains jamais triés (priorité '--') : le backlog que l'outil final doit ordonner."""
+    """Human bugs never triaged (priority '--'): the backlog the triage tool has to rank."""
     return _read(db_path, f"b.priority = '--' AND {human_sql('b.creator')}")
 
 
 def load_bot_bugs(db_path: str = DEFAULT_DB) -> pd.DataFrame:
-    """Bugs créés par des bots : textes très différents des rapports humains.
-    Servent de jeu « hors distribution » naturel pour évaluer la détection par l'énergie."""
+    """Bugs created by bots, whose texts differ strongly from human reports.
+    Used as a natural out-of-distribution set to evaluate energy-based detection."""
     where = " OR ".join(f"b.creator LIKE '%{d}'" for d in BOT_DOMAINS)
     return _read(db_path, f"({where})")
 
 
 def temporal_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Entraînement : 2020-2024 ; validation : 2025 ; test : 2026."""
+    """Train: 2020-2024; validation: 2025; test: 2026."""
     train_end = pd.Timestamp(TRAIN_END, tz="UTC")
     val_end = pd.Timestamp(VAL_END, tz="UTC")
     t = df["creation_time"]
